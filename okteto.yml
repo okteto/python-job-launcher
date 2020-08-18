@@ -1,0 +1,11 @@
+name: python-job-launcher
+image: okteto/python-job-launcher:launcher
+command:
+- bash
+workdir: /okteto
+volumes:
+- /root/.cache/pip
+persistentVolume:
+  enabled: true
+environment:
+  - ENV=dev
