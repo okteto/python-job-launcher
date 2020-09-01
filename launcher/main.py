@@ -28,12 +28,25 @@ if __name__ == "__main__":
 
   now = int(datetime.utcnow().timestamp())
   job_name = "hello-world-job-{now}".format(now=now)
-  
+
+  affinity = None  
   volumes = []
   volume_mounts = []
 
   # include the volume created by okteto if we are running in dev mode
   if os.environ['ENV'] == "dev":
+    affinity = client.V1Affinity(
+      pod_affinity=client.V1PodAffinity(
+        required_during_scheduling_ignored_during_execution=[
+          client.V1PodAffinityTerm(
+            label_selector=client.V1LabelSelector(
+              match_labels=dict({"interactive.dev.okteto.com": "python-job-launcher"}),
+            ),
+            topology_key="kubernetes.io/hostname",
+          ),
+        ],
+      ),
+    )
     volume, mount = getDevVolume()
     volumes.append(volume)    
     volume_mounts.append(mount)
@@ -46,9 +59,12 @@ if __name__ == "__main__":
 
   template = client.V1PodTemplateSpec(
             metadata=client.V1ObjectMeta(labels={"app": "job-launcher"}),
-            spec=client.V1PodSpec(restart_policy="Never", 
-                                  containers=[container],
-                                  volumes=volumes))
+            spec=client.V1PodSpec(
+              affinity=affinity,
+              restart_policy="Never", 
+              containers=[container],
+              volumes=volumes))
+
   spec = client.V1JobSpec(
             template=template,
             backoff_limit=3,
