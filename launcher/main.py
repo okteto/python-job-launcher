@@ -3,6 +3,21 @@ from datetime import datetime
 from kubernetes import client, config, utils
 from kubernetes.client.rest import ApiException
 
+def getDevAffinity():
+  # we set affinity to ensure that the job is placed in the same host as the volume
+  return client.V1Affinity(
+      pod_affinity=client.V1PodAffinity(
+        required_during_scheduling_ignored_during_execution=[
+          client.V1PodAffinityTerm(
+            label_selector=client.V1LabelSelector(
+              match_labels=dict({"interactive.dev.okteto.com": "python-job-launcher"}),
+            ),
+            topology_key="kubernetes.io/hostname",
+          ),
+        ],
+      ),
+    )
+
 def getDevVolume():
   name = "okteto-{name}".format(name=os.environ["OKTETO_NAME"])
   volume_mount = client.V1VolumeMount(
@@ -35,21 +50,10 @@ if __name__ == "__main__":
 
   # include the volume created by okteto if we are running in dev mode
   if os.environ['ENV'] == "dev":
-    affinity = client.V1Affinity(
-      pod_affinity=client.V1PodAffinity(
-        required_during_scheduling_ignored_during_execution=[
-          client.V1PodAffinityTerm(
-            label_selector=client.V1LabelSelector(
-              match_labels=dict({"interactive.dev.okteto.com": "python-job-launcher"}),
-            ),
-            topology_key="kubernetes.io/hostname",
-          ),
-        ],
-      ),
-    )
     volume, mount = getDevVolume()
     volumes.append(volume)    
     volume_mounts.append(mount)
+    affinity = getDevAffinity()
 
   container = client.V1Container(
     name=job_name, 
